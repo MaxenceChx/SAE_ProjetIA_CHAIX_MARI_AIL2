@@ -1,85 +1,87 @@
 package Algorithmes.Clustering;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class DBSCAN {
+    private double[][] data;
+    private double eps; // Rayon epsilon
+    private int minPts; // Nombre minimum de points dans un voisinage pour former un cluster
+    private int[] labels;
+    private boolean[] visited;
+    private List<List<Integer>> clusters;
 
-    private double eps;
-    private int minPts;
-
-    public DBSCAN(double eps, int minPts) {
+    public DBSCAN(double[][] data, double eps, int minPts) {
+        this.data = data;
         this.eps = eps;
         this.minPts = minPts;
+        this.labels = new int[data.length];
+        this.visited = new boolean[data.length];
+        this.clusters = new ArrayList<>();
     }
 
-    public int[] fit(double[][] data, int nClusters) {
-        int n = data.length;
-        int[] labels = new int[n];
-        Arrays.fill(labels, -1); // initialiser tous les labels à -1 (non assignés)
-
-        int clusterId = 0;
-
-        for (int i = 0; i < n; i++) {
-            if (labels[i] != -1) {
-                continue; // déjà traité
-            }
-
-            List<Integer> neighbors = regionQuery(data, i);
-
-            if (neighbors.size() < minPts) {
-                labels[i] = 0; // point de bruit
-            } else {
-                clusterId++;
-                expandCluster(data, labels, i, neighbors, clusterId);
+    public List<List<Integer>> fit() {
+        // Initialisation
+        for (int i = 0; i < data.length; i++) {
+            if (!visited[i]) {
+                visited[i] = true;
+                List<Integer> neighbors = regionQuery(i);
+                if (neighbors.size() < minPts) {
+                    labels[i] = -1; // Marquer comme bruit (noise)
+                } else {
+                    List<Integer> cluster = new ArrayList<>();
+                    expandCluster(i, neighbors, cluster);
+                    clusters.add(cluster);
+                }
             }
         }
 
-        return labels;
+        return clusters;
     }
 
-    private void expandCluster(double[][] data, int[] labels, int point, List<Integer> neighbors, int clusterId) {
-        labels[point] = clusterId;
+    private List<Integer> regionQuery(int dataIndex) {
+        List<Integer> neighbors = new ArrayList<>();
+        for (int i = 0; i < data.length; i++) {
+            if (euclideanDistance(data[dataIndex], data[i]) <= eps) {
+                neighbors.add(i);
+            }
+        }
+        return neighbors;
+    }
+
+    private void expandCluster(int dataIndex, List<Integer> neighbors, List<Integer> cluster) {
+        labels[dataIndex] = clusters.size(); // Assigner le numéro de cluster actuel
+        cluster.add(dataIndex); // Ajouter le point à ce cluster
 
         int index = 0;
         while (index < neighbors.size()) {
-            int currentPoint = neighbors.get(index);
-
-            if (labels[currentPoint] == 0) {
-                labels[currentPoint] = clusterId; // changer le point de bruit en un point de cluster
-            }
-
-            if (labels[currentPoint] == -1) {
-                labels[currentPoint] = clusterId;
-                List<Integer> currentNeighbors = regionQuery(data, currentPoint);
-                if (currentNeighbors.size() >= minPts) {
-                    neighbors.addAll(currentNeighbors);
+            int nextIndex = neighbors.get(index);
+            if (!visited[nextIndex]) {
+                visited[nextIndex] = true;
+                List<Integer> nextNeighbors = regionQuery(nextIndex);
+                if (nextNeighbors.size() >= minPts) {
+                    neighbors.addAll(nextNeighbors);
                 }
             }
-
+            // Si le point n'a pas encore été affecté à un cluster
+            if (labels[nextIndex] == 0) {
+                labels[nextIndex] = clusters.size(); // Assigner le même numéro de cluster
+                cluster.add(nextIndex); // Ajouter le point à ce cluster
+            }
             index++;
         }
     }
 
-    private List<Integer> regionQuery(double[][] data, int point) {
-        List<Integer> neighbors = new ArrayList<>();
-
-        for (int i = 0; i < data.length; i++) {
-            if (i != point && distance(data[point], data[i]) <= eps) {
-                neighbors.add(i);
-            }
-        }
-
-        return neighbors;
-    }
-
-    private double distance(double[] a, double[] b) {
+    private double euclideanDistance(double[] point1, double[] point2) {
         double sum = 0;
-        for (int i = 0; i < a.length; i++) {
-            double diff = a[i] - b[i];
-            sum += diff * diff;
+        for (int i = 0; i < point1.length; i++) {
+            sum += Math.pow(point1[i] - point2[i], 2);
         }
         return Math.sqrt(sum);
     }
+
+    public int[] getLabels() {
+        return labels;
+    }
 }
+
