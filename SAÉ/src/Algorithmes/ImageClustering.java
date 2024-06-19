@@ -81,33 +81,22 @@ public class ImageClustering {
     public static void main(String[] args) {
         try {
             // Charger l'image
-            File file = new File("SAÉ/img/Pretraitement/Planete 1_flouteeGaussien7_3.jpg");
+            File file = new File("img/Pretraitement/Planete 1_flouteeGaussien7_3.jpg");
             BufferedImage image = ImageIO.read(file);
 
             // Conversion de l'image en tableau de caractéristiques
             double[][] featureArray = imageToFeatureArray(image);
-            /*
+
             // Appliquer l'algorithme de clustering KMeans
             int nClusters = 6; // nombre de clusters souhaités
             AlgoClustering algorithm = new KMeansClustering();
             int[] labels = algorithm.clustering(featureArray, nClusters);
-             */
-
-            // Appliquer l'algorithme de clustering DBSCAN
-            int nClusters = 2; // nombre de clusters souhaités
-            AlgoClustering algorithm = new DBSCANClustering();
-            int[] labels = algorithm.clustering(featureArray, 0);
 
             // Créer une nouvelle image à partir des clusters avec couleurs moyennes
             BufferedImage clusteredImage = createClusteredImage(image, labels, nClusters);
 
-            /*
             // Sauvegarder l'image clusterisée
-            File outputfile = new File("SAÉ/img/Algorithmes/KMeans_8.jpg");
-            ImageIO.write(clusteredImage, "jpg", outputfile);
-             */
-            // Sauvegarder l'image clusterisée
-            File outputfile = new File("SAÉ/img/Algorithmes/DBSCAN_8.jpg");
+            File outputfile = new File("SAÉ/img/Algorithmes/KMeans_6.jpg");
             ImageIO.write(clusteredImage, "jpg", outputfile);
 
             System.out.println("Image clusterisée sauvegardée avec succès!");
