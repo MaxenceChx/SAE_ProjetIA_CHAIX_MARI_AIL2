@@ -6,8 +6,8 @@ public interface AlgoClustering {
      *
      * @param data Un tableau 2D de taille (nombre d'objets, nombre de caractéristiques)
      *             qui contient la description des objets à classifier.
-     * @param nClusters Le nombre de clusters souhaités.
+     * @param nbClusters Le nombre de clusters souhaités.
      * @return Un tableau 1D de taille (nombre d'objets) qui contient un numéro de cluster pour chaque objet.
      */
-    int[] fit(double[][] data, int nClusters);
+    int[] clustering(double[][] data, int nbClusters);
 }

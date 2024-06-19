@@ -1,10 +1,11 @@
-package Algorithmes;
+package Algorithmes.Clustering;
+
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 
-public class DBSCAN implements AlgoClustering {
+public class DBSCAN {
+
     private double eps;
     private int minPts;
 
@@ -13,7 +14,6 @@ public class DBSCAN implements AlgoClustering {
         this.minPts = minPts;
     }
 
-    @Override
     public int[] fit(double[][] data, int nClusters) {
         int n = data.length;
         int[] labels = new int[n];
