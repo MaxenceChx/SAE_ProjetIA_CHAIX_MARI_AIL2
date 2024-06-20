@@ -1,4 +1,4 @@
-package ComparaisonsCouleurs;
+package Algorithmes.ComparaisonsCouleurs;
 
 import java.awt.*;
 

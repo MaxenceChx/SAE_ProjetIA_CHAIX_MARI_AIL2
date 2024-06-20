@@ -1,11 +1,40 @@
 package Algorithmes;
 
+import Algorithmes.ComparaisonsCouleurs.NormeCielab;
+import Algorithmes.ComparaisonsCouleurs.NormeCouleurs;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import javax.imageio.ImageIO;
 
 public class ImageClustering {
+
+    private static final int[][] BIOME_COLORS = {
+        {71, 70, 61},  // Tundra
+        {43, 50, 35},  // Taiga
+        {59, 66, 43},  // Forêt tempérée
+        {46, 64, 34},  // Forêt tropicale
+        {84, 106, 70}, // Savane
+        {104, 95, 82}, // Prairie
+        {152, 140, 120}, // Désert
+        {200, 200, 200}, // Glacier
+        {49, 83, 100},  // Eau peu profonde
+        {12, 31, 47},   // Eau profonde
+    };
+
+    private static final String[] BIOME_NAMES = {
+        "Tundra",
+        "Taiga",
+        "Forêt tempérée",
+        "Forêt tropicale",
+        "Savane",
+        "Prairie",
+        "Désert",
+        "Glacier",
+        "Eau peu profonde",
+        "Eau profonde"
+    };
 
     public static double[][] imageToFeatureArray(BufferedImage image) {
         int width = image.getWidth();
@@ -28,78 +57,146 @@ public class ImageClustering {
         return featureArray;
     }
 
-    public static BufferedImage createClusteredImage(BufferedImage image, int[] labels, int nClusters) {
+    private static int findClosestBiome(Color color, NormeCouleurs normeCouleurs) {
+        double minDistance = Double.MAX_VALUE;
+        int closestBiome = -1;
+
+        for (int i = 0; i < BIOME_COLORS.length; i++) {
+            Color biomeColor = new Color(BIOME_COLORS[i][0], BIOME_COLORS[i][1], BIOME_COLORS[i][2]);
+            double distance = normeCouleurs.distanceCouleur(color, biomeColor);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestBiome = i;
+            }
+        }
+        return closestBiome;
+    }
+
+    public static BufferedImage createBrightenedImage(BufferedImage image, double percentage) {
         int width = image.getWidth();
         int height = image.getHeight();
-        BufferedImage clusteredImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        BufferedImage brightenedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 
-        // Tableaux pour stocker la somme des couleurs et le nombre de pixels dans chaque cluster
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int rgb = image.getRGB(x, y);
+                int red = (rgb >> 16) & 0xFF;
+                int green = (rgb >> 8) & 0xFF;
+                int blue = rgb & 0xFF;
+
+                int newRed = (int)Math.round(red + percentage * (255 - red));
+                int newGreen = (int)Math.round(green + percentage * (255 - green));
+                int newBlue = (int)Math.round(blue + percentage * (255 - blue));
+
+                int newRGB = (newRed << 16) | (newGreen << 8) | newBlue;
+                brightenedImage.setRGB(x, y, newRGB);
+            }
+        }
+
+        return brightenedImage;
+    }
+
+    public static void createBiomeImages(BufferedImage originalImage, BufferedImage brightenedImage, int[] labels, int nClusters, NormeCouleurs normeCouleurs) throws IOException {
+        int width = originalImage.getWidth();
+        int height = originalImage.getHeight();
+
         int[] clusterSizes = new int[nClusters];
-        int[][] clusterSums = new int[nClusters][3]; // [0] -> sumRed, [1] -> sumGreen, [2] -> sumBlue
+        int[][] clusterSums = new int[nClusters][3];
 
-        // Calculer la somme des couleurs et le nombre de pixels pour chaque cluster
         int index = 0;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                if (index < labels.length) {
-                    int clusterId = labels[index];
-                    int rgb = image.getRGB(x, y);
-                    int red = (rgb >> 16) & 0xFF;
-                    int green = (rgb >> 8) & 0xFF;
-                    int blue = rgb & 0xFF;
+                int clusterId = labels[index];
+                int rgb = originalImage.getRGB(x, y);
+                int red = (rgb >> 16) & 0xFF;
+                int green = (rgb >> 8) & 0xFF;
+                int blue = rgb & 0xFF;
 
-                    clusterSizes[clusterId]++;
-                    clusterSums[clusterId][0] += red;
-                    clusterSums[clusterId][1] += green;
-                    clusterSums[clusterId][2] += blue;
-                }
+                clusterSizes[clusterId]++;
+                clusterSums[clusterId][0] += red;
+                clusterSums[clusterId][1] += green;
+                clusterSums[clusterId][2] += blue;
                 index++;
             }
         }
 
-        // Calculer la couleur moyenne pour chaque cluster et l'appliquer à l'image clusterisée
+        int[] biomeAssignments = new int[nClusters];
         for (int i = 0; i < nClusters; i++) {
             if (clusterSizes[i] > 0) {
                 int avgRed = clusterSums[i][0] / clusterSizes[i];
                 int avgGreen = clusterSums[i][1] / clusterSizes[i];
                 int avgBlue = clusterSums[i][2] / clusterSizes[i];
-                int clusterColor = (avgRed << 16) | (avgGreen << 8) | avgBlue;
-
-                for (int y = 0; y < height; y++) {
-                    for (int x = 0; x < width; x++) {
-                        if (labels[y * width + x] == i) {
-                            clusteredImage.setRGB(x, y, clusterColor);
-                        }
-                    }
-                }
+                Color avgColor = new Color(avgRed, avgGreen, avgBlue);
+                biomeAssignments[i] = findClosestBiome(avgColor, normeCouleurs);
             }
         }
 
-        return clusteredImage;
+        boolean[] biomeTaken = new boolean[BIOME_COLORS.length];
+        for (int i = 0; i < nClusters; i++) {
+            if (clusterSizes[i] > 0) {
+                int biomeId = biomeAssignments[i];
+                if (biomeTaken[biomeId]) {
+                    for (int j = i + 1; j < nClusters; j++) {
+                        if (biomeAssignments[j] == biomeId && clusterSizes[j] > 0) {
+                            clusterSizes[i] += clusterSizes[j];
+                            for (int k = 0; k < 3; k++) {
+                                clusterSums[i][k] += clusterSums[j][k];
+                            }
+                            clusterSizes[j] = 0;
+                        }
+                    }
+                }
+                biomeTaken[biomeId] = true;
+            }
+        }
+
+        for (int i = 0; i < BIOME_COLORS.length; i++) {
+            BufferedImage biomeImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            boolean hasCluster = false;
+
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int clusterId = labels[y * width + x];
+                    if (clusterId >= 0 && clusterId < nClusters && biomeAssignments[clusterId] == i) {
+                        int biomeColor = (BIOME_COLORS[i][0] << 16) | (BIOME_COLORS[i][1] << 8) | BIOME_COLORS[i][2];
+                        biomeImage.setRGB(x, y, biomeColor);
+                        hasCluster = true;
+                    } else {
+                        biomeImage.setRGB(x, y, brightenedImage.getRGB(x, y));
+                    }
+                }
+            }
+
+            if (!hasCluster) {
+                for (int y = 0; y < height; y++) {
+                    for (int x = 0; x < width; x++) {
+                        biomeImage.setRGB(x, y, brightenedImage.getRGB(x, y));
+                    }
+                }
+            }
+
+            String biomeName = BIOME_NAMES[i];
+            File outputfile = new File("img/Algorithmes/Biomes/" + biomeName + ".jpg");
+            ImageIO.write(biomeImage, "jpg", outputfile);
+            System.out.println("Image de biome " + biomeName + " sauvegardée avec succès!");
+        }
     }
 
     public static void main(String[] args) {
         try {
-            // Charger l'image
             File file = new File("img/Pretraitement/Planete 1_flouteeGaussien7_3.jpg");
             BufferedImage image = ImageIO.read(file);
 
-            // Conversion de l'image en tableau de caractéristiques
             double[][] featureArray = imageToFeatureArray(image);
 
-            // Appliquer l'algorithme de clustering KMeans
-            int nClusters = 6; // nombre de clusters souhaités
+            int nClusters = 10;
             AlgoClustering algorithm = new KMeansClustering();
             int[] labels = algorithm.clustering(featureArray, nClusters);
 
-            // Créer une nouvelle image à partir des clusters avec couleurs moyennes
-            BufferedImage clusteredImage = createClusteredImage(image, labels, nClusters);
+            NormeCouleurs normeCouleurs = new NormeCielab();
+            BufferedImage brightenedImage = createBrightenedImage(image, 0.75);
 
-            // Sauvegarder l'image clusterisée
-            File outputfile = new File("SAÉ/img/Algorithmes/KMeans_6.jpg");
-            ImageIO.write(clusteredImage, "jpg", outputfile);
-
-            System.out.println("Image clusterisée sauvegardée avec succès!");
+            createBiomeImages(image, brightenedImage, labels, nClusters, normeCouleurs);
 
         } catch (IOException e) {
             e.printStackTrace();
