@@ -2,6 +2,9 @@ package Algorithmes;
 
 import Algorithmes.ComparaisonsCouleurs.NormeCielab;
 import Algorithmes.ComparaisonsCouleurs.NormeCouleurs;
+import Pretraitement.Flou;
+import Pretraitement.FlouGaussien;
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -184,19 +187,22 @@ public class ImageClustering {
 
     public static void main(String[] args) {
         try {
-            File file = new File("img/Pretraitement/Planete 1_flouteeGaussien7_3.jpg");
+            File file = new File("img/Planete 1.jpg");
             BufferedImage image = ImageIO.read(file);
 
-            double[][] featureArray = imageToFeatureArray(image);
+            Flou flouGaussien7_3 = new FlouGaussien(7, 3.0);
+            BufferedImage flou = flouGaussien7_3.appliquer(image);
+
+            double[][] featureArray = imageToFeatureArray(flou);
 
             int nClusters = 10;
             AlgoClustering algorithm = new KMeansClustering();
             int[] labels = algorithm.clustering(featureArray, nClusters);
 
             NormeCouleurs normeCouleurs = new NormeCielab();
-            BufferedImage brightenedImage = createBrightenedImage(image, 0.75);
+            BufferedImage brightenedImage = createBrightenedImage(flou, 0.75);
 
-            createBiomeImages(image, brightenedImage, labels, nClusters, normeCouleurs);
+            createBiomeImages(flou, brightenedImage, labels, nClusters, normeCouleurs);
 
         } catch (IOException e) {
             e.printStackTrace();
